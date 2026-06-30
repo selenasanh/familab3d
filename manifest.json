@@ -1,0 +1,18 @@
+{
+  "name": "Familab3D - Control de Ventas y Caja",
+  "short_name": "Familab3D",
+  "description": "Aplicación de control de ventas, inventario de productos y arqueo de caja para stand.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f0f4f8",
+  "theme_color": "#0891b2",
+  "icons": [
+    {
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <!-- Soporte PWA para dispositivos móviles (iOS y Android) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Familab3D">
+  <link rel="apple-touch-icon" href="logo.svg">
+  <meta name="theme-color" content="#0891b2">
+  <title>Familab3D - Control de Ventas y Caja</title>
+  <!-- Google Fonts para una tipografía premium -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- CABECERA DE LA APLICACIÓN -->
+    <header class="main-header">
+      <div class="header-logo">
+        <span class="logo-icon">📊</span>
+        <div class="logo-text">
+          <h1>Familab3D</h1>
+          <p>Control de Ventas & Caja</p>
+        </div>
+      </div>
+      
+      <!-- Indicadores del día / Resumen rápido -->
+      <div class="header-stats">
+        <div class="stat-card total-sales">
+          <span class="stat-label">Ventas Totales</span>
+          <span class="stat-value" id="stat-total-sales">0.00€</span>
+        </div>
+        <div class="stat-card bizum-sales">
+          <span class="stat-label">Ventas Bizum</span>
+          <span class="stat-value" id="stat-bizum-sales">0.00€</span>
+        </div>
+        <div class="stat-card cash-sales">
+          <span class="stat-label">Ventas Efectivo</span>
+          <span class="stat-value" id="stat-cash-sales">0.00€</span>
+        </div>
+        <div class="stat-card cash-in-register">
+          <span class="stat-label">Efectivo en Caja</span>
+          <span class="stat-value" id="stat-cash-register">0.00€</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- CUERPO PRINCIPAL -->
+    <main class="main-content">
+      
+      <!-- COLUMNA IZQUIERDA: PRODUCTOS Y GESTIÓN -->
+      <section class="left-column">
+        <!-- Pestañas para alternar entre Catálogo e Inventario -->
+        <div class="tabs-container">
+          <button class="tab-btn active" id="tab-catalog" onclick="switchTab('catalog')">🛍️ Catálogo de Ventas</button>
+          <button class="tab-btn" id="tab-admin" onclick="switchTab('admin')">⚙️ Gestión de Inventario</button>
+        </div>
+
+        <!-- Panel del Catálogo de Ventas -->
+        <div id="panel-catalog" class="tab-panel active">
+          <div class="search-filter-bar">
+            <input type="text" id="search-product" placeholder="Buscar producto..." onkeyup="filterProducts()">
+            <select id="filter-stock" onchange="filterProducts()">
+              <option value="all">Todos los productos</option>
+              <option value="in-stock">Con stock</option>
+              <option value="low-stock">Stock bajo (≤ 5)</option>
+              <option value="out-of-stock">Agotados</option>
+            </select>
+          </div>
+          
+          <div class="products-grid" id="products-grid">
+            <!-- Los productos se cargarán dinámicamente mediante JS -->
+          </div>
+        </div>
+
+        <!-- Panel de Gestión de Inventario -->
+        <div id="panel-admin" class="tab-panel">
+          <div class="admin-grid">
+            <!-- Formulario de Agregar / Editar Producto -->
+            <div class="admin-card product-form-card">
+              <h3 id="form-title">Agregar Nuevo Producto</h3>
+              <form id="product-form" onsubmit="saveProduct(event)">
+                <input type="hidden" id="form-product-id">
+                
+                <div class="form-group">
+                  <label for="prod-name">Nombre del Producto *</label>
+                  <input type="text" id="prod-name" required placeholder="Ej. Camiseta Stand">
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="prod-price">Precio (€) *</label>
+                    <input type="number" id="prod-price" min="0" step="0.01" required placeholder="Ej. 15.00">
+                  </div>
+                  <div class="form-group">
+                    <label for="prod-stock">Stock Inicial *</label>
+                    <input type="number" id="prod-stock" min="0" required placeholder="Ej. 20">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Imagen del Producto</label>
+                  <div class="image-upload-container">
+                    <div class="image-preview" id="image-preview">
+                      <span>Sin Imagen</span>
+                    </div>
+                    <div class="image-upload-controls">
+                      <label class="btn-file-upload">
+                        📁 Subir Foto
+                        <input type="file" id="prod-image-file" accept="image/*" onchange="handleImageUpload(event)">
+                      </label>
+                      <button type="button" class="btn-secondary" onclick="useDefaultImage()">Usar Predeterminada</button>
+                    </div>
+                  </div>
+                  <input type="hidden" id="prod-image-data">
+                </div>
+
+                <div class="form-actions">
+                  <button type="submit" class="btn-primary" id="btn-submit-form">Crear Producto</button>
+                  <button type="button" class="btn-secondary" id="btn-cancel-edit" onclick="cancelProductEdit()" style="display: none;">Cancelar</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Lista de Productos para Ajuste Rápido -->
+            <div class="admin-card product-list-card">
+              <h3>Lista de Inventario</h3>
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Prod</th>
+                      <th>Nombre</th>
+                      <th>Precio</th>
+                      <th>Stock</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-product-rows">
+                    <!-- Filas dinámicas en JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMNA DERECHA: CARRITO, PAGO Y CAJA DE EFECTIVO -->
+      <section class="right-column">
+        
+        <!-- SECCIÓN 1: CAJA DE EFECTIVO (DESGLOSE DE MONEDAS Y BILLETES) -->
+        <div class="control-card cash-register-card">
+          <div class="card-header">
+            <h3>💵 Caja de Efectivo</h3>
+            <button class="btn-icon-toggle" onclick="toggleRegisterDetails()" id="btn-toggle-reg">ocultar ▲</button>
+          </div>
+          
+          <div id="register-details" class="register-grid">
+            <!-- Billetes -->
+            <div class="cash-row bills-group">
+              <h4>Billetes</h4>
+              <div class="cash-items-grid">
+                <!-- 50€ -->
+                <div class="cash-tile bill bill-50">
+                  <div class="bill-face">50</div>
+                  <div class="cash-controls">
+                    <button class="btn-qty" onclick="adjustCashDenomination(50, -1)">-</button>
+                    <span class="cash-count" id="count-50">0</span>
+                    <button class="btn-qty" onclick="adjustCashDenomination(50, 1)">+</button>
+                  </div>
+                  <div class="cash-subtotal" id="subtotal-50">0.00€</div>
+                </div>
+                <!-- 20€ -->
+                <div class="cash-tile bill bill-20">
+                  <div class="bill-face">20</div>
+                  <div class="cash-controls">
+                    <button class="btn-qty" onclick="adjustCashDenomination(20, -1)">-</button>
+                    <span class="cash-count" id="count-20">0</span>
+                    <button class="btn-qty" onclick="adjustCashDenomination(20, 1)">+</button>
+                  </div>
+                  <div class="cash-subtotal" id="subtotal-20">0.00€</div>
+                </div>
+                <!-- 10€ -->
+                <div class="cash-tile bill bill-10">
+                  <div class="bill-face">10</div>
+                  <div class="cash-controls">
+                    <button class="btn-qty" onclick="adjustCashDenomination(10, -1)">-</button>
+                    <span class="cash-count" id="count-10">0</span>
+                    <button class="btn-qty" onclick="adjustCashDenomination(10, 1)">+</button>
+                  </div>
+                  <div class="cash-subtotal" id="subtotal-10">0.00€</div>
+                </div>
+                <!-- 5€ -->
+                <div class="cash-tile bill bill-5">
+                  <div class="bill-face">5</div>
+                  <div class="cash-controls">
+                    <button class="btn-qty" onclick="adjustCashDenomination(5, -1)">-</button>
+                    <span class="cash-count" id="count-5">0</span>
+                    <button class="btn-qty" onclick="adjustCashDenomination(5, 1)">+</button>
+                  </div>
+                  <div class="cash-subtotal" id="subtotal-5">0.00€</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Monedas -->
+            <div class="cash-row coins-group">
+              <h4>Monedas</h4>
+              <div class="cash-items-grid">
+                <!-- 2€ -->
+                <div class="cash-tile coin coin-2">
+                  <div class="coin-face">2€</div>
+                  <div class="cash-controls">
+                    <button class="btn-qty" onclick="adjustCashDenomination(2, -1)">-</button>
+                    <span class="cash-count" id="count-2">0</span>
+                    <button class="btn-qty" onclick="adjustCashDenomination(2, 1)">+</button>
+                  </div>
+                  <div class="cash-subtotal" id="subtotal-2">0.00€</div>
+                </div>
+                <!-- 1€ -->
+                <div class="cash-tile coin coin-1">
+                  <div class="coin-face">1€</div>
+                  <div class="cash-controls">
+                    <button class="btn-qty" onclick="adjustCashDenomination(1, -1)">-</button>
+                    <span class="cash-count" id="count-1">0</span>
+                    <button class="btn-qty" onclick="adjustCashDenomination(1, 1)">+</button>
+                  </div>
+                  <div class="cash-subtotal" id="subtotal-1">0.00€</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="register-footer">
+            <span>Total en Caja:</span>
+            <strong id="register-total-sum">0.00€</strong>
+          </div>
+        </div>
+
+        <!-- SECCIÓN 2: TERMINAL DE COBRO (CARRITO Y PAGO) -->
+        <div class="control-card checkout-card">
+          <h3>🛒 Carrito de Venta</h3>
+          
+          <!-- Lista de Compra -->
+          <div class="cart-items-list" id="cart-items">
+            <div class="empty-cart-message">El carrito está vacío. Haz clic en los productos para agregarlos.</div>
+          </div>
+          
+          <!-- Resumen de Costos -->
+          <div class="cart-summary">
+            <div class="summary-line">
+              <span>Artículos seleccionados:</span>
+              <span id="cart-qty-count">0</span>
+            </div>
+            <div class="summary-line total-line">
+              <span>Importe Total:</span>
+              <span id="cart-total-amount">0.00€</span>
+            </div>
+          </div>
+
+          <!-- Selección Método de Pago -->
+          <div class="payment-method-section">
+            <label>Método de Pago:</label>
+            <div class="payment-tabs">
+              <button class="payment-tab active" id="pay-cash-btn" onclick="selectPaymentMethod('cash')">💵 Efectivo</button>
+              <button class="payment-tab" id="pay-bizum-btn" onclick="selectPaymentMethod('bizum')">📱 Bizum</button>
+            </div>
+          </div>
+
+          <!-- Detalle Pago en Efectivo (Condicional) -->
+          <div id="cash-payment-details" class="payment-details-panel">
+            <div class="form-group">
+              <label>Cliente Entrega:</label>
+              <div class="cash-input-wrapper">
+                <input type="number" id="cash-given" min="0" step="0.01" placeholder="0.00" oninput="calculateChange()">
+                <span class="euro-symbol">€</span>
+              </div>
+            </div>
+
+            <!-- Botones Rápidos para Cobro -->
+            <div class="quick-cash-buttons">
+              <button type="button" class="btn-quick-cash" onclick="quickCash('exact')">Justo</button>
+              <button type="button" class="btn-quick-cash" onclick="quickCash(5)">5 €</button>
+              <button type="button" class="btn-quick-cash" onclick="quickCash(10)">10 €</button>
+              <button type="button" class="btn-quick-cash" onclick="quickCash(20)">20 €</button>
+              <button type="button" class="btn-quick-cash" onclick="quickCash(50)">50 €</button>
+            </div>
+
+            <!-- Cambio a devolver -->
+            <div class="change-output-container">
+              <div class="change-amount-row">
+                <span>Cambio a devolver:</span>
+                <strong id="change-to-return">0.00€</strong>
+              </div>
+              
+              <!-- Sugerencia de billetes/monedas para devolver -->
+              <div class="change-suggestion" id="change-suggestion-box" style="display: none;">
+                <h5>Sugerencia de cambio óptimo:</h5>
+                <div class="suggestion-pills" id="suggestion-pills-container">
+                  <!-- Pills dinámicos -->
+                </div>
+              </div>
+              
+              <!-- Alerta si falta cambio en caja -->
+              <div class="change-alert" id="change-alert-box" style="display: none;">
+                ⚠️ ¡Advertencia! No hay denominaciones suficientes en caja para este cambio. Se requiere ajuste manual.
+              </div>
+            </div>
+          </div>
+
+          <!-- Detalle Bizum -->
+          <div id="bizum-payment-details" class="payment-details-panel" style="display: none;">
+            <div class="bizum-info">
+              <span class="bizum-icon">📱</span>
+              <p>Confirma que el cliente ha enviado el Bizum por valor de <strong id="bizum-confirm-total">0.00€</strong> antes de guardar la venta.</p>
+            </div>
+          </div>
+
+          <!-- Botón de Acción Principal -->
+          <button class="btn-checkout-submit" id="btn-confirm-sale" disabled onclick="confirmSale()">
+            Confirmar y Registrar Venta
+          </button>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- HISTORIAL DE VENTAS Y AUDITORÍA -->
+    <footer class="history-section">
+      <div class="history-header">
+        <h3>📜 Historial de Ventas del Día</h3>
+        <div class="history-actions">
+          <button class="btn-secondary" onclick="exportDailyReport()">📊 Resumen del Día</button>
+          <button class="btn-danger" onclick="clearAllData()">🗑️ Reiniciar Todo</button>
+        </div>
+      </div>
+      
+      <div class="history-table-container">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Productos</th>
+              <th>Total</th>
+              <th>Método</th>
+              <th>Detalles Pago</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="history-rows">
+            <!-- Filas dinámicas en JS -->
+          </tbody>
+        </table>
+        <div class="empty-history-message" id="empty-history-msg">No hay ventas registradas hoy.</div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL DE RESUMEN DEL DÍA -->
+  <div id="report-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeReportModal()">&times;</span>
+      <h2>Resumen de Caja y Ventas</h2>
+      <div class="report-body" id="report-modal-body">
+        <!-- Contenido generado dinámicamente -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="window.print()">🖨️ Imprimir Reporte</button>
+        <button class="btn-secondary" onclick="closeReportModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
