@@ -97,9 +97,36 @@
                     <label for="prod-price">Precio (€) *</label>
                     <input type="number" id="prod-price" min="0" step="0.01" required placeholder="Ej. 15.00">
                   </div>
-                  <div class="form-group">
+                  <div class="form-group" id="group-prod-stock">
                     <label for="prod-stock">Stock Inicial *</label>
                     <input type="number" id="prod-stock" min="0" required placeholder="Ej. 20">
+                  </div>
+                </div>
+
+                <div class="form-group checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="prod-has-variants" onchange="toggleVariantsSection()">
+                    <span>¿Este producto tiene variantes (ej. colores, tallas)?</span>
+                  </label>
+                </div>
+
+                <!-- Configuración de variantes dinámicas -->
+                <div class="variants-config-panel" id="variants-config-panel" style="display: none;">
+                  <label class="section-subtitle">Añadir Variantes (ej. Rojo, Azul, XL...)</label>
+                  <div class="form-row" style="margin-bottom: 0.4rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <input type="text" id="variant-name-input" placeholder="Nombre (ej. Rojo)">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <input type="number" id="variant-stock-input" min="0" placeholder="Stock (ej. 10)">
+                    </div>
+                  </div>
+                  <button type="button" class="btn-secondary" onclick="addVariantToTempList()" style="width: 100%; margin-top: 0.4rem; margin-bottom: 0.5rem;">
+                    + Añadir Variante
+                  </button>
+
+                  <div class="temp-variants-list" id="temp-variants-list">
+                    <!-- Badges de variantes añadidas dinámicamente -->
                   </div>
                 </div>
 

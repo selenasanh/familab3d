@@ -1,4 +1,4 @@
-// APP.JS - Lógica de Negocio, Control de Caja e Inventario para Familab3D
+// APP.JS - Lógica de Negocio, Control de Caja, Inventario y Variantes para Familab3D
 
 // Registro del Service Worker para funcionamiento como PWA
 if ('serviceWorker' in navigator) {
@@ -11,12 +11,25 @@ if ('serviceWorker' in navigator) {
 
 // CONFIGURACIÓN DE ESTADO INICIAL
 const DEFAULT_PRODUCTS = [
-  { id: 'p1', name: 'Pegatina Stand', price: 1.00, stock: 100, image: 'default-sticker' },
-  { id: 'p2', name: 'Llavero Acrílico', price: 3.00, stock: 40, image: 'default-keychain' },
-  { id: 'p3', name: 'Taza de Cerámica', price: 8.00, stock: 20, image: 'default-mug' },
-  { id: 'p4', name: 'Camiseta Oficial', price: 15.00, stock: 15, image: 'default-shirt' },
-  { id: 'p5', name: 'Bolsa de Tela (Totebag)', price: 10.00, stock: 25, image: 'default-bag' },
-  { id: 'p6', name: 'Refresco / Agua', price: 2.00, stock: 30, image: 'default-drink' }
+  { id: 'p1', name: 'Pegatina Stand', price: 1.00, stock: 100, image: 'default-sticker', hasVariants: false, variants: [] },
+  { id: 'p2', name: 'Llavero Acrílico', price: 3.00, stock: 40, image: 'default-keychain', hasVariants: false, variants: [] },
+  { id: 'p3', name: 'Taza de Cerámica', price: 8.00, stock: 20, image: 'default-mug', hasVariants: false, variants: [] },
+  { id: 'p4', name: 'Camiseta Oficial', price: 15.00, stock: 15, image: 'default-shirt', hasVariants: false, variants: [] },
+  { id: 'p5', name: 'Bolsa de Tela (Totebag)', price: 10.00, stock: 25, image: 'default-bag', hasVariants: false, variants: [] },
+  { id: 'p6', name: 'Refresco / Agua', price: 2.00, stock: 30, image: 'default-drink', hasVariants: false, variants: [] },
+  { 
+    id: 'p7', 
+    name: 'Disco / Figura 3D', 
+    price: 5.00, 
+    stock: 15, 
+    image: 'generic', 
+    hasVariants: true, 
+    variants: [
+      { id: 'v_red', name: 'Rojo', stock: 5 },
+      { id: 'v_blue', name: 'Azul', stock: 5 },
+      { id: 'v_green', name: 'Verde', stock: 5 }
+    ] 
+  }
 ];
 
 const DEFAULT_CASH_REGISTER = {
@@ -36,6 +49,9 @@ let state = {
   sales: [],
   paymentMethod: 'cash' // 'cash' o 'bizum'
 };
+
+// Almacenamiento temporal de variantes para el formulario de administración
+let tempVariants = [];
 
 // Iconos predeterminados por tipo de producto (SVG en formato CSS)
 const IMAGE_PLACEHOLDERS = {
@@ -67,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cash-given').value = '';
 });
 
-// PERSISTENCIA DE DATOS
+// PERSISTENCIA DE DATOS Y MIGRACIÓN AUTOMÁTICA
 function saveStateToLocalStorage() {
   localStorage.setItem('familab3d_state', JSON.stringify({
     products: state.products,
@@ -84,6 +100,9 @@ function loadStateFromLocalStorage() {
       state.products = parsed.products || [];
       state.cashRegister = parsed.cashRegister || { ...DEFAULT_CASH_REGISTER };
       state.sales = parsed.sales || [];
+      
+      // Normalización / Migración para asegurar estructura de variantes
+      normalizeProductsState();
     } catch (e) {
       console.error("Error al cargar localStorage, usando valores predeterminados", e);
       resetStateToDefaults();
@@ -91,6 +110,18 @@ function loadStateFromLocalStorage() {
   } else {
     resetStateToDefaults();
   }
+}
+
+function normalizeProductsState() {
+  state.products.forEach(prod => {
+    if (prod.hasVariants === undefined) prod.hasVariants = false;
+    if (!prod.variants) prod.variants = [];
+    
+    // Si tiene variantes, calcular el stock total acumulado
+    if (prod.hasVariants && prod.variants.length > 0) {
+      prod.stock = prod.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+    }
+  });
 }
 
 function resetStateToDefaults() {
@@ -101,11 +132,25 @@ function resetStateToDefaults() {
   saveStateToLocalStorage();
 }
 
+// FUNCIONES AUXILIARES DE PRODUCTOS Y VARIANTES
+function getProductTotalStock(prod) {
+  if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+    return prod.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+  }
+  return parseInt(prod.stock) || 0;
+}
+
+function getVariantStock(prod, variantId) {
+  if (prod.hasVariants && prod.variants) {
+    const v = prod.variants.find(variant => variant.id === variantId);
+    return v ? (parseInt(v.stock) || 0) : 0;
+  }
+  return parseInt(prod.stock) || 0;
+}
+
 // CONTROL DE PESTAÑAS (TABS)
 function switchTab(tabId) {
-  // Pestañas botones
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  // Paneles de contenido
   document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
   
   if (tabId === 'catalog') {
@@ -157,18 +202,20 @@ function renderCatalog() {
     const card = document.createElement('div');
     card.className = 'product-card';
     card.dataset.name = prod.name;
-    card.dataset.stock = prod.stock;
     
-    // Calcular clase de stock
+    const totalStock = getProductTotalStock(prod);
+    card.dataset.stock = totalStock;
+    
+    // Calcular clase e indicador de stock
     let stockClass = 'in-stock';
-    let stockText = `${prod.stock} disponibles`;
+    let stockText = `${totalStock} disponibles`;
     
-    if (prod.stock === 0) {
+    if (totalStock === 0) {
       stockClass = 'out-of-stock';
       stockText = 'Agotado';
-    } else if (prod.stock <= 5) {
+    } else if (totalStock <= 5) {
       stockClass = 'low-stock';
-      stockText = `Últimas ${prod.stock} uds.`;
+      stockText = `Últimas ${totalStock} uds.`;
     }
     
     // Crear elemento de imagen (si es base64 o placeholder)
@@ -178,6 +225,25 @@ function renderCatalog() {
     } else {
       const symbol = IMAGE_PLACEHOLDERS[prod.image] || IMAGE_PLACEHOLDERS['generic'];
       imgHTML = `<div class="product-image-fallback">${symbol}</div>`;
+    }
+    
+    // Selector de variantes (si aplica)
+    let variantSelectorHTML = '';
+    if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+      let optionsHTML = prod.variants.map(v => {
+        const vStock = parseInt(v.stock) || 0;
+        const disabled = vStock === 0 ? 'disabled' : '';
+        const labelText = `${v.name} (${vStock > 0 ? vStock + ' uds' : 'Agotado'})`;
+        return `<option value="${v.id}" ${disabled}>${labelText}</option>`;
+      }).join('');
+      
+      variantSelectorHTML = `
+        <div class="variant-select-wrapper">
+          <select id="select_var_${prod.id}" class="variant-select">
+            ${optionsHTML}
+          </select>
+        </div>
+      `;
     }
     
     card.innerHTML = `
@@ -190,7 +256,8 @@ function renderCatalog() {
         <div class="product-price-stock">
           <span class="product-price">${prod.price.toFixed(2)}€</span>
         </div>
-        <button class="btn-add-cart" onclick="addToCart('${prod.id}')" ${prod.stock === 0 ? 'disabled' : ''}>
+        ${variantSelectorHTML}
+        <button class="btn-add-cart" onclick="handleAddCatalogToCart('${prod.id}')" ${totalStock === 0 ? 'disabled' : ''}>
           <span>🛒 Añadir</span>
         </button>
       </div>
@@ -198,6 +265,21 @@ function renderCatalog() {
     
     grid.appendChild(card);
   });
+}
+
+function handleAddCatalogToCart(productId) {
+  const prod = state.products.find(p => p.id === productId);
+  if (!prod) return;
+  
+  let variantId = null;
+  if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+    const selectElem = document.getElementById(`select_var_${productId}`);
+    if (selectElem) {
+      variantId = selectElem.value;
+    }
+  }
+  
+  addToCart(productId, variantId);
 }
 
 // RENDERIZADO DE GESTIÓN DE INVENTARIO (ADMIN PANEL)
@@ -217,17 +299,36 @@ function renderAdminList() {
       imgHTML = `<div class="admin-table-img-fallback">${symbol}</div>`;
     }
     
-    row.innerHTML = `
-      <td>${imgHTML}</td>
-      <td style="font-weight: 600;">${prod.name}</td>
-      <td>${prod.price.toFixed(2)}€</td>
-      <td>
+    // Render de controles de stock (simples o desglosados por variantes)
+    let stockControlHTML = '';
+    if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+      let subrowsHTML = prod.variants.map(v => `
+        <div class="variant-subrow">
+          <span style="font-weight:600;">${v.name}:</span>
+          <div class="stock-control">
+            <button class="btn-qty" onclick="quickAdjustVariantStock('${prod.id}', '${v.id}', -1)">-</button>
+            <input type="number" class="admin-stock-input" value="${v.stock}" min="0" onchange="manualAdjustVariantStock('${prod.id}', '${v.id}', this.value)">
+            <button class="btn-qty" onclick="quickAdjustVariantStock('${prod.id}', '${v.id}', 1)">+</button>
+          </div>
+        </div>
+      `).join('');
+      
+      stockControlHTML = `<div style="display:flex; flex-direction:column; gap:0.25rem;">${subrowsHTML}</div>`;
+    } else {
+      stockControlHTML = `
         <div class="stock-control">
           <button class="btn-qty" onclick="quickAdjustStock('${prod.id}', -1)">-</button>
           <input type="number" class="admin-stock-input" value="${prod.stock}" min="0" onchange="manualAdjustStock('${prod.id}', this.value)">
           <button class="btn-qty" onclick="quickAdjustStock('${prod.id}', 1)">+</button>
         </div>
-      </td>
+      `;
+    }
+    
+    row.innerHTML = `
+      <td>${imgHTML}</td>
+      <td style="font-weight: 600;">${prod.name}</td>
+      <td>${prod.price.toFixed(2)}€</td>
+      <td>${stockControlHTML}</td>
       <td>
         <div class="admin-actions">
           <button class="btn-table-icon" onclick="startEditProduct('${prod.id}')" title="Editar">✏️</button>
@@ -257,7 +358,6 @@ function renderCashRegister() {
   document.getElementById('stat-cash-register').textContent = `${totalSum.toFixed(2)}€`;
 }
 
-// COLAPSAR/DESPLEGAR DETALLES DE LA CAJA
 function toggleRegisterDetails() {
   const details = document.getElementById('register-details');
   const btn = document.getElementById('btn-toggle-reg');
@@ -271,7 +371,6 @@ function toggleRegisterDetails() {
   }
 }
 
-// CONTROL DE AJUSTES EN CAJA
 function adjustCashDenomination(denom, amount) {
   const current = state.cashRegister[denom] || 0;
   const newValue = Math.max(0, current + amount);
@@ -279,7 +378,73 @@ function adjustCashDenomination(denom, amount) {
   
   saveStateToLocalStorage();
   renderCashRegister();
-  calculateChange(); // Recalcular cambio sugerido por si cambió la disponibilidad
+  calculateChange();
+}
+
+// FORMULARIO Y MANEJO DE VARIANTES DINÁMICAS (ADMIN)
+function toggleVariantsSection() {
+  const checkbox = document.getElementById('prod-has-variants');
+  const panel = document.getElementById('variants-config-panel');
+  const stockInputGroup = document.getElementById('group-prod-stock');
+  const stockInput = document.getElementById('prod-stock');
+  
+  if (checkbox.checked) {
+    panel.style.display = 'block';
+    stockInput.disabled = true;
+    stockInput.value = '0';
+    stockInputGroup.style.opacity = '0.4';
+  } else {
+    panel.style.display = 'none';
+    stockInput.disabled = false;
+    stockInputGroup.style.opacity = '1';
+  }
+}
+
+function addVariantToTempList() {
+  const nameInput = document.getElementById('variant-name-input');
+  const stockInput = document.getElementById('variant-stock-input');
+  
+  const name = nameInput.value.trim();
+  const stock = parseInt(stockInput.value) || 0;
+  
+  if (!name) {
+    alert("Por favor introduce el nombre de la variante (ej. Rojo, Azul, XL).");
+    return;
+  }
+  
+  const newVariant = {
+    id: 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    name: name,
+    stock: Math.max(0, stock)
+  };
+  
+  tempVariants.push(newVariant);
+  
+  nameInput.value = '';
+  stockInput.value = '';
+  nameInput.focus();
+  
+  renderTempVariantsList();
+}
+
+function removeTempVariant(variantId) {
+  tempVariants = tempVariants.filter(v => v.id !== variantId);
+  renderTempVariantsList();
+}
+
+function renderTempVariantsList() {
+  const container = document.getElementById('temp-variants-list');
+  container.innerHTML = '';
+  
+  tempVariants.forEach(v => {
+    const chip = document.createElement('div');
+    chip.className = 'temp-variant-chip';
+    chip.innerHTML = `
+      <span><strong>${v.name}:</strong> ${v.stock} uds</span>
+      <button type="button" class="btn-remove-chip" onclick="removeTempVariant('${v.id}')">✕</button>
+    `;
+    container.appendChild(chip);
+  });
 }
 
 // GESTIÓN DE PRODUCTOS (CREAR, EDITAR, ELIMINAR)
@@ -315,24 +480,53 @@ function saveProduct(event) {
   const id = document.getElementById('form-product-id').value;
   const name = document.getElementById('prod-name').value.trim();
   const price = parseFloat(document.getElementById('prod-price').value);
-  const stock = parseInt(document.getElementById('prod-stock').value);
+  const hasVariants = document.getElementById('prod-has-variants').checked;
   const image = document.getElementById('prod-image-data').value || 'generic';
   
-  if (!name || isNaN(price) || isNaN(stock)) return;
+  if (!name || isNaN(price)) return;
+  
+  let finalVariants = [];
+  let finalStock = 0;
+  
+  if (hasVariants) {
+    if (tempVariants.length === 0) {
+      alert("Has marcado que el producto tiene variantes, pero no has añadido ninguna. Por favor añade al menos una variante (ej. Rojo, Azul).");
+      return;
+    }
+    finalVariants = JSON.parse(JSON.stringify(tempVariants));
+    finalStock = finalVariants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+  } else {
+    finalStock = parseInt(document.getElementById('prod-stock').value) || 0;
+  }
   
   if (id) {
     // Modo Edición
     const prodIdx = state.products.findIndex(p => p.id === id);
     if (prodIdx !== -1) {
-      state.products[prodIdx] = { id, name, price, stock, image };
+      state.products[prodIdx] = {
+        id,
+        name,
+        price,
+        stock: finalStock,
+        image,
+        hasVariants,
+        variants: finalVariants
+      };
     }
   } else {
     // Modo Crear
     const newId = 'p_' + Date.now();
-    state.products.push({ id: newId, name, price, stock, image });
+    state.products.push({
+      id: newId,
+      name,
+      price,
+      stock: finalStock,
+      image,
+      hasVariants,
+      variants: finalVariants
+    });
   }
   
-  // Limpiar formulario y resetear
   cancelProductEdit();
   saveStateToLocalStorage();
   renderCatalog();
@@ -350,6 +544,13 @@ function startEditProduct(id) {
   document.getElementById('prod-stock').value = prod.stock;
   document.getElementById('prod-image-data').value = prod.image;
   
+  const hasVariantsCheckbox = document.getElementById('prod-has-variants');
+  hasVariantsCheckbox.checked = !!prod.hasVariants;
+  
+  tempVariants = prod.hasVariants && prod.variants ? JSON.parse(JSON.stringify(prod.variants)) : [];
+  toggleVariantsSection();
+  renderTempVariantsList();
+  
   const preview = document.getElementById('image-preview');
   if (prod.image && prod.image.startsWith('data:image')) {
     preview.innerHTML = '';
@@ -363,7 +564,6 @@ function startEditProduct(id) {
   document.getElementById('btn-submit-form').textContent = "Guardar Cambios";
   document.getElementById('btn-cancel-edit').style.display = 'block';
   
-  // Scroll hacia el formulario
   document.querySelector('.product-form-card').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -371,6 +571,12 @@ function cancelProductEdit() {
   document.getElementById('form-title').textContent = "Agregar Nuevo Producto";
   document.getElementById('form-product-id').value = '';
   document.getElementById('product-form').reset();
+  
+  tempVariants = [];
+  document.getElementById('prod-has-variants').checked = false;
+  toggleVariantsSection();
+  renderTempVariantsList();
+  
   useDefaultImage();
   
   document.getElementById('btn-submit-form').textContent = "Crear Producto";
@@ -380,18 +586,18 @@ function cancelProductEdit() {
 function deleteProduct(id) {
   if (confirm("¿Estás seguro de que quieres eliminar este producto? Se eliminará del inventario y del catálogo.")) {
     state.products = state.products.filter(p => p.id !== id);
-    // Eliminar también del carrito si estaba
-    removeFromCart(id);
+    state.cart = state.cart.filter(item => item.productId !== id);
     
     saveStateToLocalStorage();
     renderCatalog();
     renderAdminList();
+    renderCart();
   }
 }
 
 function quickAdjustStock(id, delta) {
   const prod = state.products.find(p => p.id === id);
-  if (prod) {
+  if (prod && !prod.hasVariants) {
     prod.stock = Math.max(0, prod.stock + delta);
     saveStateToLocalStorage();
     renderAdminList();
@@ -402,7 +608,7 @@ function quickAdjustStock(id, delta) {
 function manualAdjustStock(id, value) {
   const parsed = parseInt(value);
   const prod = state.products.find(p => p.id === id);
-  if (prod && !isNaN(parsed)) {
+  if (prod && !prod.hasVariants && !isNaN(parsed)) {
     prod.stock = Math.max(0, parsed);
     saveStateToLocalStorage();
     renderAdminList();
@@ -410,44 +616,97 @@ function manualAdjustStock(id, value) {
   }
 }
 
-// GESTIÓN DEL CARRITO DE COMPRA
-function addToCart(productId) {
+function quickAdjustVariantStock(productId, variantId, delta) {
   const prod = state.products.find(p => p.id === productId);
-  if (!prod || prod.stock <= 0) return;
+  if (prod && prod.hasVariants && prod.variants) {
+    const v = prod.variants.find(variant => variant.id === variantId);
+    if (v) {
+      v.stock = Math.max(0, (parseInt(v.stock) || 0) + delta);
+      prod.stock = prod.variants.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+      saveStateToLocalStorage();
+      renderAdminList();
+      renderCatalog();
+    }
+  }
+}
+
+function manualAdjustVariantStock(productId, variantId, value) {
+  const parsed = parseInt(value);
+  const prod = state.products.find(p => p.id === productId);
+  if (prod && prod.hasVariants && prod.variants && !isNaN(parsed)) {
+    const v = prod.variants.find(variant => variant.id === variantId);
+    if (v) {
+      v.stock = Math.max(0, parsed);
+      prod.stock = prod.variants.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+      saveStateToLocalStorage();
+      renderAdminList();
+      renderCatalog();
+    }
+  }
+}
+
+// GESTIÓN DEL CARRITO DE COMPRA
+function addToCart(productId, variantId = null) {
+  const prod = state.products.find(p => p.id === productId);
+  if (!prod) return;
   
-  const cartItem = state.cart.find(item => item.productId === productId);
+  let availableStock = 0;
+  let variantObj = null;
+  
+  if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+    if (!variantId) {
+      alert("Por favor selecciona una variante (color/talla) del desplegable.");
+      return;
+    }
+    variantObj = prod.variants.find(v => v.id === variantId);
+    if (!variantObj || variantObj.stock <= 0) {
+      alert("La variante seleccionada está agotada.");
+      return;
+    }
+    availableStock = parseInt(variantObj.stock) || 0;
+  } else {
+    if (prod.stock <= 0) {
+      alert("Este producto está agotado.");
+      return;
+    }
+    availableStock = parseInt(prod.stock) || 0;
+  }
+  
+  const cartItem = state.cart.find(item => item.productId === productId && item.variantId === variantId);
   if (cartItem) {
-    if (cartItem.quantity < prod.stock) {
+    if (cartItem.quantity < availableStock) {
       cartItem.quantity++;
     } else {
-      alert(`No puedes añadir más de este producto. El stock límite es ${prod.stock}.`);
+      alert(`No puedes añadir más unidades. El stock límite disponible es ${availableStock}.`);
     }
   } else {
-    state.cart.push({ productId, quantity: 1 });
+    state.cart.push({ productId, variantId, quantity: 1 });
   }
   
   renderCart();
 }
 
-function adjustCartQty(productId, delta) {
-  const cartItem = state.cart.find(item => item.productId === productId);
+function adjustCartQty(productId, variantId, delta) {
+  const cartItem = state.cart.find(item => item.productId === productId && item.variantId === variantId);
   const prod = state.products.find(p => p.id === productId);
   if (!cartItem || !prod) return;
   
+  const availableStock = getVariantStock(prod, variantId);
   const newQty = cartItem.quantity + delta;
+  
   if (newQty <= 0) {
-    removeFromCart(productId);
-  } else if (newQty <= prod.stock) {
+    removeFromCart(productId, variantId);
+  } else if (newQty <= availableStock) {
     cartItem.quantity = newQty;
   } else {
-    alert(`No puedes añadir más de este producto. El stock límite es ${prod.stock}.`);
+    alert(`No puedes añadir más unidades. El stock límite disponible es ${availableStock}.`);
   }
   
   renderCart();
 }
 
-function removeFromCart(productId) {
-  state.cart = state.cart.filter(item => item.productId !== productId);
+function removeFromCart(productId, variantId) {
+  state.cart = state.cart.filter(item => !(item.productId === productId && item.variantId === variantId));
   renderCart();
 }
 
@@ -462,7 +721,6 @@ function renderCart() {
     document.getElementById('cart-total-amount').textContent = '0.00€';
     document.getElementById('bizum-confirm-total').textContent = '0.00€';
     
-    // Deshabilitar botón de confirmar
     document.getElementById('btn-confirm-sale').disabled = true;
     resetCashPaymentInputs();
     return;
@@ -475,6 +733,14 @@ function renderCart() {
     const prod = state.products.find(p => p.id === item.productId);
     if (!prod) return;
     
+    let displayName = prod.name;
+    if (item.variantId && prod.hasVariants && prod.variants) {
+      const v = prod.variants.find(variant => variant.id === item.variantId);
+      if (v) {
+        displayName += ` (${v.name})`;
+      }
+    }
+    
     const subtotal = prod.price * item.quantity;
     totalQty += item.quantity;
     totalAmount += subtotal;
@@ -483,16 +749,16 @@ function renderCart() {
     row.className = 'cart-item-row';
     row.innerHTML = `
       <div class="cart-item-details">
-        <div class="cart-item-name" title="${prod.name}">${prod.name}</div>
+        <div class="cart-item-name" title="${displayName}">${displayName}</div>
         <div class="cart-item-price-unit">${prod.price.toFixed(2)}€ c/u</div>
       </div>
       <div class="cart-item-controls">
-        <button class="btn-cart-qty" onclick="adjustCartQty('${prod.id}', -1)">-</button>
+        <button class="btn-cart-qty" onclick="adjustCartQty('${prod.id}', '${item.variantId || ''}', -1)">-</button>
         <span class="cart-item-qty">${item.quantity}</span>
-        <button class="btn-cart-qty" onclick="adjustCartQty('${prod.id}', 1)">+</button>
+        <button class="btn-cart-qty" onclick="adjustCartQty('${prod.id}', '${item.variantId || ''}', 1)">+</button>
       </div>
       <div class="cart-item-subtotal">${subtotal.toFixed(2)}€</div>
-      <button class="btn-remove-item" onclick="removeFromCart('${prod.id}')" title="Eliminar">✕</button>
+      <button class="btn-remove-item" onclick="removeFromCart('${prod.id}', '${item.variantId || ''}')" title="Eliminar">✕</button>
     `;
     
     cartContainer.appendChild(row);
@@ -502,7 +768,6 @@ function renderCart() {
   document.getElementById('cart-total-amount').textContent = `${totalAmount.toFixed(2)}€`;
   document.getElementById('bizum-confirm-total').textContent = `${totalAmount.toFixed(2)}€`;
   
-  // Activar botón si el pago está listo
   validateCheckoutForm();
 }
 
@@ -517,7 +782,6 @@ function resetCashPaymentInputs() {
 function selectPaymentMethod(method) {
   state.paymentMethod = method;
   
-  // Actualizar UI pestañas de pago
   document.getElementById('pay-cash-btn').classList.remove('active');
   document.getElementById('pay-bizum-btn').classList.remove('active');
   
@@ -536,7 +800,6 @@ function selectPaymentMethod(method) {
   validateCheckoutForm();
 }
 
-// Ajustes rápidos de cobro en efectivo
 function quickCash(option) {
   const total = getCartTotal();
   if (total === 0) return;
@@ -584,13 +847,11 @@ function calculateChange() {
   changeOutput.textContent = `${changeNeeded.toFixed(2)}€`;
   
   if (changeNeeded > 0) {
-    // ALGORITMO SUGERENCIA DE CAMBIO CON EFECTIVO REAL EN CAJA
     const changeBreakdown = calculateOptimalChange(changeNeeded);
     
     if (changeBreakdown.success) {
       suggestionBox.style.display = 'block';
       
-      // Renderizar los pills de cambio sugerido
       for (const [denom, count] of Object.entries(changeBreakdown.breakdown)) {
         if (count > 0) {
           const isBill = parseInt(denom) >= 5;
@@ -601,7 +862,6 @@ function calculateChange() {
         }
       }
     } else {
-      // Alerta si no es posible dar el cambio exacto con lo que hay
       alertBox.style.display = 'block';
       suggestionBox.style.display = 'block';
       pillsContainer.innerHTML = `<span style="color: var(--danger); font-size: 0.8rem; font-weight:600;">⚠️ Caja sin cambio suficiente exacto.</span>`;
@@ -611,9 +871,8 @@ function calculateChange() {
   validateCheckoutForm();
 }
 
-// Algoritmo glotón (Greedy) para calcular el cambio disponible
 function calculateOptimalChange(targetAmount) {
-  let remaining = Math.round(targetAmount * 100); // Evitar problemas de coma flotante
+  let remaining = Math.round(targetAmount * 100);
   const denominations = [50, 20, 10, 5, 2, 1];
   const available = { ...state.cashRegister };
   const breakdown = { 50: 0, 20: 0, 10: 0, 5: 0, 2: 0, 1: 0 };
@@ -633,7 +892,6 @@ function calculateOptimalChange(targetAmount) {
   };
 }
 
-// VALIDAR FORMULARIO DE COBRO
 function validateCheckoutForm() {
   const confirmBtn = document.getElementById('btn-confirm-sale');
   const total = getCartTotal();
@@ -647,7 +905,6 @@ function validateCheckoutForm() {
     confirmBtn.disabled = false;
   } else {
     const given = parseFloat(document.getElementById('cash-given').value || '0');
-    // Activar botón solo si nos han dado suficiente dinero
     confirmBtn.disabled = given < total;
   }
 }
@@ -667,20 +924,13 @@ function confirmSale() {
     const given = parseFloat(document.getElementById('cash-given').value);
     const change = parseFloat((given - total).toFixed(2));
     
-    // Calcular denominaciones entregadas por el cliente de forma estimada
-    // (Por ejemplo, si paga 20€ para un total de 12€, asume que entrega un billete de 20€)
     const clientPaymentBreakdown = estimatePaymentDenominations(given);
-    
-    // Calcular denominaciones devueltas de cambio (óptimas si existen, si no, greedy estándar)
     const changeBreakdown = calculateOptimalChange(change);
     
-    // 1. Añadir el dinero entregado por el cliente a la caja
     for (const [denom, count] of Object.entries(clientPaymentBreakdown)) {
       state.cashRegister[denom] = (state.cashRegister[denom] || 0) + count;
     }
     
-    // 2. Restar el cambio de la caja
-    // Si fue exitoso el cálculo óptimo, restamos ese desglose. Si no, hacemos lo que podamos
     const actualChangeGiven = changeBreakdown.success ? changeBreakdown.breakdown : calculateOptimalChange(change).breakdown;
     for (const [denom, count] of Object.entries(actualChangeGiven)) {
       state.cashRegister[denom] = Math.max(0, (state.cashRegister[denom] || 0) - count);
@@ -701,38 +951,49 @@ function confirmSale() {
     };
   }
   
-  // Actualizar stocks de productos
+  // Actualizar stocks de productos y variantes
+  const saleItemsRecord = [];
+  
   state.cart.forEach(cartItem => {
     const prod = state.products.find(p => p.id === cartItem.productId);
-    if (prod) {
-      prod.stock = Math.max(0, prod.stock - cartItem.quantity);
+    if (!prod) return;
+    
+    let itemName = prod.name;
+    if (cartItem.variantId && prod.hasVariants && prod.variants) {
+      const v = prod.variants.find(variant => variant.id === cartItem.variantId);
+      if (v) {
+        v.stock = Math.max(0, (parseInt(v.stock) || 0) - cartItem.quantity);
+        itemName += ` (${v.name})`;
+      }
+      // Recalcular stock acumulado del producto
+      prod.stock = prod.variants.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+    } else {
+      prod.stock = Math.max(0, (parseInt(prod.stock) || 0) - cartItem.quantity);
     }
+    
+    saleItemsRecord.push({
+      productId: cartItem.productId,
+      variantId: cartItem.variantId || null,
+      name: itemName,
+      price: prod.price,
+      quantity: cartItem.quantity
+    });
   });
   
-  // Guardar la venta en el historial
   const saleRecord = {
     id: saleId,
     time: timeStr,
     timestamp: date.getTime(),
-    items: state.cart.map(item => {
-      const prod = state.products.find(p => p.id === item.productId);
-      return {
-        productId: item.productId,
-        name: prod ? prod.name : 'Producto Eliminado',
-        price: prod ? prod.price : 0,
-        quantity: item.quantity
-      };
-    }),
+    items: saleItemsRecord,
     total: total,
     payment: paymentDetails
   };
   
-  state.sales.unshift(saleRecord); // Insertar al inicio de la lista
-  state.cart = []; // Vaciar carrito
+  state.sales.unshift(saleRecord);
+  state.cart = [];
   
   saveStateToLocalStorage();
   
-  // Refrescar UI
   renderCatalog();
   renderAdminList();
   renderCart();
@@ -743,13 +1004,11 @@ function confirmSale() {
   resetCashPaymentInputs();
 }
 
-// Estimar la composición del dinero entregado por el cliente
 function estimatePaymentDenominations(amount) {
   let remaining = Math.round(amount * 100);
   const denominations = [50, 20, 10, 5, 2, 1];
   const breakdown = { 50: 0, 20: 0, 10: 0, 5: 0, 2: 0, 1: 0 };
   
-  // Caso exacto simple
   for (let denom of denominations) {
     const denomCents = denom * 100;
     while (remaining >= denomCents) {
@@ -776,15 +1035,12 @@ function renderSalesHistory() {
   state.sales.forEach(sale => {
     const row = document.createElement('tr');
     
-    // Listado de productos e.g. "2x Camiseta, 1x Refresco"
     const itemsStr = sale.items.map(it => `${it.quantity}x ${it.name}`).join(', ');
     
-    // Método badge
     const badgeClass = sale.payment.method === 'cash' ? 'payment-cash' : 'payment-bizum';
     const badgeText = sale.payment.method === 'cash' ? '💵 Efectivo' : '📱 Bizum';
     const badgeHTML = `<span class="badge-payment ${badgeClass}">${badgeText}</span>`;
     
-    // Detalle pago
     let detailsStr = '';
     if (sale.payment.method === 'cash') {
       detailsStr = `Recibido: ${sale.payment.given.toFixed(2)}€ | Cambio: ${sale.payment.change.toFixed(2)}€`;
@@ -809,31 +1065,35 @@ function renderSalesHistory() {
   });
 }
 
-// DESHACER VENTA (ROLLBACK)
+// DESHACER VENTA (ROLLBACK CON RESTAURACIÓN DE VARIANTES)
 function undoSale(saleId) {
   const saleIdx = state.sales.findIndex(s => s.id === saleId);
   if (saleIdx === -1) return;
   
-  if (confirm("¿Estás seguro de que quieres deshacer esta venta? Se devolverán los artículos al stock y se revertirán los importes correspondientes de la caja.")) {
+  if (confirm("¿Estás seguro de que quieres deshacer esta venta? Se devolverán los artículos y sus variantes correspondientes al stock y se revertirán los importes de caja.")) {
     const sale = state.sales[saleIdx];
     
-    // 1. Devolver productos al stock
     sale.items.forEach(item => {
       const prod = state.products.find(p => p.id === item.productId);
       if (prod) {
-        prod.stock += item.quantity;
+        if (item.variantId && prod.hasVariants && prod.variants) {
+          const v = prod.variants.find(variant => variant.id === item.variantId);
+          if (v) {
+            v.stock = (parseInt(v.stock) || 0) + item.quantity;
+          }
+          prod.stock = prod.variants.reduce((sum, it) => sum + (parseInt(it.stock) || 0), 0);
+        } else {
+          prod.stock = (parseInt(prod.stock) || 0) + item.quantity;
+        }
       }
     });
     
-    // 2. Revertir caja si fue en efectivo
     if (sale.payment.method === 'cash') {
-      // Restar el dinero que entregó el cliente
       if (sale.payment.addedDenoms) {
         for (const [denom, count] of Object.entries(sale.payment.addedDenoms)) {
           state.cashRegister[denom] = Math.max(0, (state.cashRegister[denom] || 0) - count);
         }
       }
-      // Sumar de vuelta el cambio que le devolvimos
       if (sale.payment.removedDenoms) {
         for (const [denom, count] of Object.entries(sale.payment.removedDenoms)) {
           state.cashRegister[denom] = (state.cashRegister[denom] || 0) + count;
@@ -841,12 +1101,9 @@ function undoSale(saleId) {
       }
     }
     
-    // 3. Eliminar venta del historial
     state.sales.splice(saleIdx, 1);
-    
     saveStateToLocalStorage();
     
-    // Actualizar UI
     renderCatalog();
     renderAdminList();
     renderCashRegister();
@@ -880,7 +1137,6 @@ function exportDailyReport() {
   const modal = document.getElementById('report-modal');
   const body = document.getElementById('report-modal-body');
   
-  // Calcular estadísticas detalladas
   let totalVolume = 0;
   let cashVolume = 0;
   let bizumVolume = 0;
@@ -906,7 +1162,6 @@ function exportDailyReport() {
     });
   });
   
-  // Desglose de Caja actual
   let currentCashRegisterTotal = 0;
   const cashLines = [];
   const denominations = [50, 20, 10, 5, 2, 1];
@@ -920,7 +1175,6 @@ function exportDailyReport() {
     }
   });
   
-  // Renderizar contenido HTML para el modal
   let productsHTML = '';
   if (Object.keys(productSummary).length === 0) {
     productsHTML = '<div class="report-line text-muted">No se vendió ningún producto.</div>';
@@ -936,7 +1190,6 @@ function exportDailyReport() {
   }
   
   body.innerHTML = `
-    <!-- Resumen Financiero -->
     <div class="report-section">
       <h4>Resumen Financiero</h4>
       <div class="report-grid-2col">
@@ -952,17 +1205,15 @@ function exportDailyReport() {
       </div>
     </div>
     
-    <!-- Ventas por Producto -->
     <div class="report-section">
-      <h4>Ventas por Producto</h4>
+      <h4>Ventas por Producto y Variante</h4>
       <div class="report-products-list">
         ${productsHTML}
       </div>
     </div>
     
-    <!-- Estado de Caja Fuerte -->
     <div class="report-section">
-      <h4>Desglose de Efectivo en Caja</h4>
+      <h4>Estado de Caja Fuerte</h4>
       <div class="report-cash-list">
         ${cashLines.length > 0 ? cashLines.join('') : '<div class="report-line text-muted">Caja vacía.</div>'}
         <div class="report-line total">
@@ -984,18 +1235,13 @@ function closeReportModal() {
 function clearAllData() {
   if (confirm("ATENCIÓN: Se eliminará todo el historial de ventas del día, se restablecerá el stock por defecto y se reiniciará la caja. ¿Deseas continuar?")) {
     resetStateToDefaults();
-    
-    // Limpiar campos formulario
     cancelProductEdit();
-    
-    // Refrescar vistas
     renderCatalog();
     renderAdminList();
     renderCart();
     renderCashRegister();
     renderSalesHistory();
     updateStats();
-    
     alert("Aplicación reiniciada a los valores iniciales de fábrica.");
   }
 }
