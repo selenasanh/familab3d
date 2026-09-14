@@ -1,4 +1,4 @@
-const CACHE_NAME = 'familab3d-cache-v9';
+const CACHE_NAME = 'familab3d-cache-v11';
 const ASSETS = [
   './',
   './index.html',
