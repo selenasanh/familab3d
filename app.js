@@ -50,6 +50,11 @@ let state = {
   paymentMethod: 'cash' // 'cash' o 'bizum'
 };
 
+// ESTADO DE CONEXIÓN FIREBASE
+let isFirebaseConnected = false;
+let firebaseRef = null;
+let isRemoteUpdating = false;
+
 // Almacenamiento temporal de variantes para el formulario de administración
 let tempVariants = [];
 
@@ -71,6 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Rellenar imagen de previsualización por defecto
   useDefaultImage();
   
+  // Inicializar Firebase si existen credenciales guardadas
+  initFirebase();
+  
+  // Escuchar cambios de red (online/offline)
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+  
   // Renderizado inicial
   renderCatalog();
   renderAdminList();
@@ -83,13 +95,140 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cash-given').value = '';
 });
 
-// PERSISTENCIA DE DATOS Y MIGRACIÓN AUTOMÁTICA
+// INICIALIZACIÓN DE FIREBASE (SINCRONIZACIÓN EN TIEMPO REAL)
+function initFirebase() {
+  const savedConfigStr = localStorage.getItem('familab3d_firebase_config');
+  if (!savedConfigStr || typeof firebase === 'undefined') {
+    updateNetworkStatus();
+    return;
+  }
+
+  try {
+    const config = JSON.parse(savedConfigStr);
+    if (!config.databaseURL || !config.apiKey || !config.projectId) {
+      updateNetworkStatus();
+      return;
+    }
+
+    if (firebase.apps.length === 0) {
+      firebase.initializeApp(config);
+    }
+
+    firebaseRef = firebase.database().ref('/familab3d_state');
+    
+    // Escuchar cambios en la nube en tiempo real (Realtime Listener)
+    firebaseRef.on('value', snapshot => {
+      const remoteData = snapshot.val();
+      if (remoteData) {
+        isRemoteUpdating = true;
+        state.products = remoteData.products || [];
+        state.cashRegister = remoteData.cashRegister || { ...DEFAULT_CASH_REGISTER };
+        state.sales = remoteData.sales || [];
+        
+        normalizeProductsState();
+        
+        // Guardar copia local sin re-sincronizar a firebase para prevenir loops infinitos
+        localStorage.setItem('familab3d_state', JSON.stringify({
+          products: state.products,
+          cashRegister: state.cashRegister,
+          sales: state.sales
+        }));
+        
+        renderCatalog();
+        renderAdminList();
+        renderCart();
+        renderCashRegister();
+        renderSalesHistory();
+        updateStats();
+        
+        isRemoteUpdating = false;
+      }
+    });
+
+    isFirebaseConnected = true;
+    updateNetworkStatus();
+  } catch (e) {
+    console.error("Error al inicializar Firebase:", e);
+    isFirebaseConnected = false;
+    updateNetworkStatus();
+  }
+}
+
+// ESTADO DE RED E INDICADOR VISUAL
+function updateNetworkStatus() {
+  const badge = document.getElementById('sync-status-badge');
+  const text = document.getElementById('sync-text');
+  if (!badge || !text) return;
+
+  if (navigator.onLine && isFirebaseConnected) {
+    badge.className = 'sync-status-badge sync-online';
+    text.textContent = 'Conectado (Nube)';
+  } else {
+    badge.className = 'sync-status-badge sync-offline';
+    text.textContent = navigator.onLine ? 'Guardado Local (Sin Firebase)' : 'Guardado Local (Offline)';
+  }
+}
+
+// MODAL DE CONFIGURACIÓN DE FIREBASE
+function openFirebaseModal() {
+  const modal = document.getElementById('firebase-modal');
+  const savedConfigStr = localStorage.getItem('familab3d_firebase_config');
+  if (savedConfigStr) {
+    try {
+      const cfg = JSON.parse(savedConfigStr);
+      document.getElementById('fb-database-url').value = cfg.databaseURL || '';
+      document.getElementById('fb-api-key').value = cfg.apiKey || '';
+      document.getElementById('fb-project-id').value = cfg.projectId || '';
+    } catch (e) {}
+  }
+  modal.classList.add('active');
+}
+
+function closeFirebaseModal() {
+  document.getElementById('firebase-modal').classList.remove('active');
+}
+
+function saveFirebaseConfig(event) {
+  event.preventDefault();
+  const databaseURL = document.getElementById('fb-database-url').value.trim();
+  const apiKey = document.getElementById('fb-api-key').value.trim();
+  const projectId = document.getElementById('fb-project-id').value.trim();
+
+  if (!databaseURL || !apiKey || !projectId) {
+    alert("Por favor completa los tres campos obligatorios.");
+    return;
+  }
+
+  const config = { databaseURL, apiKey, projectId };
+  localStorage.setItem('familab3d_firebase_config', JSON.stringify(config));
+  
+  closeFirebaseModal();
+  initFirebase();
+  saveStateToLocalStorage();
+  alert("¡Configuración de Firebase guardada con éxito! La sincronización en tiempo real está activada.");
+}
+
+// PERSISTENCIA DE DATOS Y DOBLE GUARDADO
 function saveStateToLocalStorage() {
+  // 1. Guardado LOCAL inmediato (100% offline safety)
   localStorage.setItem('familab3d_state', JSON.stringify({
     products: state.products,
     cashRegister: state.cashRegister,
     sales: state.sales
   }));
+
+  // 2. Si Firebase está activo y no estamos en medio de un evento remoto, sincronizar en la Nube
+  if (isFirebaseConnected && firebaseRef && !isRemoteUpdating) {
+    firebaseRef.set({
+      products: state.products,
+      cashRegister: state.cashRegister,
+      sales: state.sales,
+      lastUpdated: Date.now()
+    }).catch(err => {
+      console.warn("[Firebase] Error al sincronizar en la nube:", err);
+      updateNetworkStatus();
+    });
+  }
 }
 
 function loadStateFromLocalStorage() {

@@ -16,6 +16,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  
+  <!-- Firebase App & Realtime Database SDKs (Compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -26,6 +30,10 @@
         <div class="logo-text">
           <h1>Familab3D</h1>
           <p>Control de Ventas & Caja</p>
+        </div>
+        <div class="sync-status-badge sync-offline" id="sync-status-badge" onclick="openFirebaseModal()" title="Hacer clic para configurar sincronización multidispositivo (Firebase)">
+          <span class="sync-dot" id="sync-dot"></span>
+          <span id="sync-text">Guardado Local (Offline)</span>
         </div>
       </div>
       
@@ -401,6 +409,37 @@
         <button class="btn-primary" onclick="window.print()">🖨️ Imprimir Reporte</button>
         <button class="btn-secondary" onclick="closeReportModal()">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURACIÓN FIREBASE -->
+  <div id="firebase-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeFirebaseModal()">&times;</span>
+      <h2>🔥 Sincronización Nube (Firebase)</h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;">
+        Introduce las claves gratuitas de tu proyecto Firebase para sincronizar tus ventas y stock en tiempo real entre tu tablet, móvil y PC.
+      </p>
+
+      <form id="firebase-config-form" onsubmit="saveFirebaseConfig(event)">
+        <div class="form-group">
+          <label for="fb-database-url">URL de la Base de Datos (databaseURL) *</label>
+          <input type="text" id="fb-database-url" required placeholder="https://tu-proyecto-default-rtdb.firebaseio.com">
+        </div>
+        <div class="form-group">
+          <label for="fb-api-key">API Key *</label>
+          <input type="text" id="fb-api-key" required placeholder="AIzaSy...">
+        </div>
+        <div class="form-group">
+          <label for="fb-project-id">ID del Proyecto (projectId) *</label>
+          <input type="text" id="fb-project-id" required placeholder="tu-proyecto-id">
+        </div>
+
+        <div class="modal-footer" style="margin-top: 1rem;">
+          <button type="submit" class="btn-primary">💾 Guardar y Conectar</button>
+          <button type="button" class="btn-secondary" onclick="closeFirebaseModal()">Cancelar</button>
+        </div>
+      </form>
     </div>
   </div>
 
