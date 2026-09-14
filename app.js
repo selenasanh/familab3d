@@ -120,6 +120,7 @@ function initFirebase() {
     firebaseRef.on('value', snapshot => {
       const remoteData = snapshot.val();
       if (remoteData) {
+        // Si la nube tiene datos, este dispositivo adopta inmediatamente el estado de la nube
         isRemoteUpdating = true;
         state.products = remoteData.products || [];
         state.cashRegister = remoteData.cashRegister || { ...DEFAULT_CASH_REGISTER };
@@ -142,6 +143,9 @@ function initFirebase() {
         updateStats();
         
         isRemoteUpdating = false;
+      } else {
+        // Si la base de datos en la nube está completamente vacía (proyecto nuevo), subir estado local
+        saveStateToLocalStorage();
       }
     });
 
@@ -204,8 +208,7 @@ function saveFirebaseConfig(event) {
   
   closeFirebaseModal();
   initFirebase();
-  saveStateToLocalStorage();
-  alert("¡Configuración de Firebase guardada con éxito! La sincronización en tiempo real está activada.");
+  alert("¡Configuración de Firebase guardada con éxito! Sincronizando con los datos de la nube...");
 }
 
 // PERSISTENCIA DE DATOS Y DOBLE GUARDADO
