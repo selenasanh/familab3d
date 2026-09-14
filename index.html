@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Familab3D">
-  <link rel="apple-touch-icon" href="logo.png">
-  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="pwa-icon.png">
+  <link rel="icon" type="image/png" href="pwa-icon.png">
   <meta name="theme-color" content="#0891b2">
   <title>Familab3D - Control de Ventas y Caja</title>
   <!-- Google Fonts para una tipografía premium -->
@@ -27,10 +27,12 @@
     <!-- CABECERA DE LA APLICACIÓN -->
     <header class="main-header">
       <div class="header-logo">
-        <img src="logo.png" class="header-logo-img" alt="Familab3D Logo">
-        <div class="logo-text">
-          <h1>Familab3D</h1>
-          <p>Control de Ventas & Caja</p>
+        <div class="header-brand">
+          <img src="logo.png" class="header-logo-img" alt="Familab3D Logo">
+          <div class="logo-text">
+            <h1>Familab3D</h1>
+            <p>Control de Ventas & Caja</p>
+          </div>
         </div>
         <div class="sync-status-badge sync-offline" id="sync-status-badge" onclick="openFirebaseModal()" title="Hacer clic para configurar sincronización multidispositivo (Firebase)">
           <span class="sync-dot" id="sync-dot"></span>

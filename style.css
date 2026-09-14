@@ -77,6 +77,13 @@ body {
 .header-logo {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
 }
 
@@ -1601,7 +1608,31 @@ body {
   }
 
   .header-logo {
-    justify-content: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .header-brand {
+    gap: 0.5rem;
+  }
+
+  .header-logo-img {
+    height: 38px;
+    max-width: 70px;
+  }
+
+  .logo-text h1 {
+    font-size: 1.35rem;
+  }
+
+  .logo-text p {
+    font-size: 0.75rem;
+  }
+
+  .sync-status-badge {
+    margin-left: auto;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.55rem;
   }
 
   .header-stats {
