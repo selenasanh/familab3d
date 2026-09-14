@@ -80,9 +80,12 @@ body {
   gap: 0.75rem;
 }
 
-.logo-icon {
-  font-size: 2.25rem;
-  filter: drop-shadow(0 4px 10px var(--primary-glow));
+.header-logo-img {
+  height: 48px;
+  width: auto;
+  max-width: 100px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(148, 163, 184, 0.2));
   animation: float 4s ease-in-out infinite;
 }
 

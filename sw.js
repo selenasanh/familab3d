@@ -1,10 +1,11 @@
-const CACHE_NAME = 'familab3d-cache-v5';
+const CACHE_NAME = 'familab3d-cache-v8';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './manifest.json',
+  './logo.png',
   './logo.svg'
 ];
 
