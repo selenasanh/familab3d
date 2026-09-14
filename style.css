@@ -1532,6 +1532,160 @@ body {
   100% { transform: translateY(0px); }
 }
 
+/* AJUSTES RESPONSIVOS EXCLUSIVOS PARA MÓVIL (< 768px y < 540px) */
+@media (max-width: 768px) {
+  body {
+    padding: 0.75rem;
+  }
+
+  .app-container {
+    gap: 1rem;
+  }
+
+  .main-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .header-logo {
+    justify-content: center;
+  }
+
+  .header-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .stat-card {
+    min-width: unset;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.65rem;
+  }
+
+  .stat-value {
+    font-size: 1.1rem;
+  }
+
+  .search-filter-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .search-filter-bar input, .search-filter-bar select {
+    width: 100%;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .history-actions {
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .history-actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 540px) {
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .product-card {
+    border-radius: 0.75rem;
+  }
+
+  .product-info {
+    padding: 0.6rem;
+  }
+
+  .product-name {
+    font-size: 0.85rem;
+  }
+
+  .product-price {
+    font-size: 1.1rem;
+  }
+
+  .btn-add-cart {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .variant-select {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.4rem;
+  }
+
+  .cash-items-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .cash-tile {
+    padding: 0.4rem;
+  }
+
+  .bill-face {
+    width: 60px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+
+  .coin-face {
+    width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
+  }
+
+  .cash-controls {
+    gap: 0.3rem;
+  }
+
+  .btn-qty {
+    width: 26px;
+    height: 26px;
+    font-size: 0.85rem;
+  }
+
+  .quick-cash-buttons {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+  }
+
+  .control-card {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 1.25rem;
+  }
+}
+
 /* PRINT MEDIA ADJUSTMENTS */
 @media print {
   body {
