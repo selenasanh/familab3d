@@ -1,4 +1,5 @@
-const CACHE_NAME = 'familab3d-cache-v13';
+// SW.JS - Service Worker con estrategia Network-First para actualizaciones inmediatas
+const CACHE_NAME = 'familab3d-cache-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -10,26 +11,25 @@ const ASSETS = [
   './logo.svg'
 ];
 
-// Instalación del Service Worker: Guardar recursos en la caché
+// Instalación inmediata
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[Service Worker] Cachando recursos principales');
-        return cache.addAll(ASSETS);
-      })
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('[Service Worker] Precachando recursos principales v14');
+      return cache.addAll(ASSETS);
+    })
   );
 });
 
-// Activación del Service Worker: Limpieza de cachés antiguas
+// Activación y eliminación de cualquier caché antigua
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) {
-            console.log('[Service Worker] Eliminando caché antigua:', key);
+            console.log('[Service Worker] Borrando caché obsoleta:', key);
             return caches.delete(key);
           }
         })
@@ -38,30 +38,29 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Intercepción de peticiones (Estrategia: Cache-First con actualización de caché en segundo plano)
+// Estrategia Network-First para archivos propios de la app:
+// Siempre pide la versión fresca de la red si hay conexión; si estás offline, usa la caché.
 self.addEventListener('fetch', event => {
-  // Solo procesar peticiones locales del mismo origen
-  if (event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(cachedResponse => {
-          if (cachedResponse) {
-            // Devolver recurso cacheado inmediatamente
-            // Pero hacer una petición de red en segundo plano para actualizar la caché
-            fetch(event.request)
-              .then(networkResponse => {
-                if (networkResponse.status === 200) {
-                  caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse));
-                }
-              })
-              .catch(err => console.log('[Service Worker] Falló fetch en segundo plano (probablemente offline)'));
-            
-            return cachedResponse;
-          }
-          
-          // Si no está en caché, ir a la red
-          return fetch(event.request);
-        })
-    );
+  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+    return;
   }
+
+  event.respondWith(
+    fetch(event.request)
+      .then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then(cachedResponse => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
+  );
 });
