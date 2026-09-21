@@ -120,20 +120,48 @@ function initFirebase() {
     firebaseRef.on('value', snapshot => {
       const remoteData = snapshot.val();
       if (remoteData) {
-        // Si la nube tiene datos, este dispositivo adopta inmediatamente el estado de la nube
+        // Comprobar marcas de tiempo para no sobreescribir datos locales más recientes
+        const localSavedStr = localStorage.getItem('familab3d_state');
+        let localLastUpdated = state.lastUpdated || 0;
+        if (localSavedStr) {
+          try {
+            const parsed = JSON.parse(localSavedStr);
+            if (parsed.lastUpdated && parsed.lastUpdated > localLastUpdated) {
+              localLastUpdated = parsed.lastUpdated;
+            }
+          } catch (e) {}
+        }
+
+        const remoteLastUpdated = remoteData.lastUpdated || 0;
+
+        // Si los datos locales son más recientes que la copia remota (ej. guardado justo antes de recargar)
+        if (localLastUpdated > remoteLastUpdated) {
+          console.log("[Firebase] Estado local más reciente que la nube. Sincronizando hacia Firebase...");
+          isRemoteUpdating = false;
+          saveStateToLocalStorage();
+          return;
+        }
+
+        // Si la nube tiene datos más nuevos o iguales, adoptamos el estado de la nube
         isRemoteUpdating = true;
         state.products = remoteData.products || [];
         state.cashRegister = remoteData.cashRegister || { ...DEFAULT_CASH_REGISTER };
         state.sales = remoteData.sales || [];
+        state.lastUpdated = remoteLastUpdated || Date.now();
         
         normalizeProductsState();
         
-        // Guardar copia local sin re-sincronizar a firebase para prevenir loops infinitos
-        localStorage.setItem('familab3d_state', JSON.stringify({
-          products: state.products,
-          cashRegister: state.cashRegister,
-          sales: state.sales
-        }));
+        // Guardar copia local
+        try {
+          localStorage.setItem('familab3d_state', JSON.stringify({
+            products: state.products,
+            cashRegister: state.cashRegister,
+            sales: state.sales,
+            lastUpdated: state.lastUpdated
+          }));
+        } catch (err) {
+          console.warn("[Storage] Error al guardar en localStorage:", err);
+        }
         
         renderCatalog();
         renderAdminList();
@@ -159,10 +187,16 @@ function initFirebase() {
 }
 
 // ESTADO DE RED E INDICADOR VISUAL
-function updateNetworkStatus() {
+function updateNetworkStatus(customStatus = null) {
   const badge = document.getElementById('sync-status-badge');
   const text = document.getElementById('sync-text');
   if (!badge || !text) return;
+
+  if (customStatus === 'saving') {
+    badge.className = 'sync-status-badge sync-saving';
+    text.textContent = 'Guardando en la nube...';
+    return;
+  }
 
   if (navigator.onLine && isFirebaseConnected) {
     badge.className = 'sync-status-badge sync-online';
@@ -213,25 +247,39 @@ function saveFirebaseConfig(event) {
 
 // PERSISTENCIA DE DATOS Y DOBLE GUARDADO
 function saveStateToLocalStorage() {
-  // 1. Guardado LOCAL inmediato (100% offline safety)
-  localStorage.setItem('familab3d_state', JSON.stringify({
-    products: state.products,
-    cashRegister: state.cashRegister,
-    sales: state.sales
-  }));
+  state.lastUpdated = Date.now();
 
-  // 2. Si Firebase está activo y no estamos en medio de un evento remoto, sincronizar en la Nube
-  if (isFirebaseConnected && firebaseRef && !isRemoteUpdating) {
-    firebaseRef.set({
+  // 1. Guardado LOCAL inmediato (100% offline safety) con manejo de cuota
+  try {
+    localStorage.setItem('familab3d_state', JSON.stringify({
       products: state.products,
       cashRegister: state.cashRegister,
       sales: state.sales,
-      lastUpdated: Date.now()
+      lastUpdated: state.lastUpdated
+    }));
+  } catch (err) {
+    console.error("[Storage] Error al guardar en localStorage:", err);
+  }
+
+  // 2. Si Firebase está activo y no estamos en medio de un evento remoto, sincronizar en la Nube
+  if (isFirebaseConnected && firebaseRef && !isRemoteUpdating) {
+    updateNetworkStatus('saving');
+    return firebaseRef.set({
+      products: state.products,
+      cashRegister: state.cashRegister,
+      sales: state.sales,
+      lastUpdated: state.lastUpdated
+    }).then(() => {
+      updateNetworkStatus();
+      return true;
     }).catch(err => {
       console.warn("[Firebase] Error al sincronizar en la nube:", err);
       updateNetworkStatus();
+      return false;
     });
   }
+
+  return Promise.resolve(true);
 }
 
 function loadStateFromLocalStorage() {
@@ -242,6 +290,7 @@ function loadStateFromLocalStorage() {
       state.products = parsed.products || [];
       state.cashRegister = parsed.cashRegister || { ...DEFAULT_CASH_REGISTER };
       state.sales = parsed.sales || [];
+      state.lastUpdated = parsed.lastUpdated || Date.now();
       
       // Normalización / Migración para asegurar estructura de variantes
       normalizeProductsState();
@@ -597,11 +646,40 @@ function handleImageUpload(event) {
   if (file) {
     const reader = new FileReader();
     reader.onload = function(e) {
-      currentUploadedImage = e.target.result;
-      const preview = document.getElementById('image-preview');
-      preview.innerHTML = '';
-      preview.style.backgroundImage = `url(${currentUploadedImage})`;
-      document.getElementById('prod-image-data').value = currentUploadedImage;
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 400; // 400x400 max: alta nitidez pero reduce tamaño de 5MB a ~25KB
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convertir a JPEG optimizado (calidad 0.8)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+        currentUploadedImage = compressedBase64;
+
+        const preview = document.getElementById('image-preview');
+        preview.innerHTML = '';
+        preview.style.backgroundImage = `url(${compressedBase64})`;
+        document.getElementById('prod-image-data').value = compressedBase64;
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   }
@@ -614,6 +692,23 @@ function useDefaultImage() {
   preview.style.backgroundImage = 'none';
   document.getElementById('prod-image-data').value = 'generic';
   document.getElementById('prod-image-file').value = '';
+}
+
+function showToast(message, type = 'success') {
+  let toastContainer = document.getElementById('toast-notification');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-notification';
+    toastContainer.className = 'toast-notification';
+    document.body.appendChild(toastContainer);
+  }
+  
+  toastContainer.textContent = message;
+  toastContainer.className = `toast-notification show ${type}`;
+  
+  setTimeout(() => {
+    toastContainer.className = 'toast-notification';
+  }, 2800);
 }
 
 function saveProduct(event) {
@@ -641,7 +736,8 @@ function saveProduct(event) {
     finalStock = parseInt(document.getElementById('prod-stock').value) || 0;
   }
   
-  if (id) {
+  const isEditing = !!id;
+  if (isEditing) {
     // Modo Edición
     const prodIdx = state.products.findIndex(p => p.id === id);
     if (prodIdx !== -1) {
@@ -670,9 +766,16 @@ function saveProduct(event) {
   }
   
   cancelProductEdit();
-  saveStateToLocalStorage();
   renderCatalog();
   renderAdminList();
+  
+  saveStateToLocalStorage().then(success => {
+    if (success) {
+      showToast(isEditing ? '✓ Cambios guardados y sincronizados' : '✓ Producto creado y sincronizado en la nube');
+    } else {
+      showToast('Guardado localmente (sin internet)', 'warning');
+    }
+  });
 }
 
 function startEditProduct(id) {
