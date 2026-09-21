@@ -1644,19 +1644,29 @@ body {
 
 /* AJUSTES RESPONSIVOS EXCLUSIVOS PARA MÓVIL (< 768px y < 540px) */
 @media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
   body {
-    padding: 0.75rem;
+    padding: 0.6rem;
   }
 
   .app-container {
-    gap: 1rem;
+    gap: 0.85rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .main-header {
     flex-direction: column;
     align-items: stretch;
-    gap: 1rem;
-    padding: 1rem;
+    gap: 0.85rem;
+    padding: 0.85rem;
   }
 
   .header-logo {
@@ -1707,6 +1717,28 @@ body {
     font-size: 1.1rem;
   }
 
+  .main-content {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .left-column, .right-column {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .tabs-container {
+    padding: 0.25rem;
+  }
+
+  .tab-btn {
+    font-size: 0.85rem;
+    padding: 0.6rem 0.4rem;
+  }
+
   .search-filter-bar {
     flex-direction: column;
     gap: 0.5rem;
@@ -1714,14 +1746,316 @@ body {
 
   .search-filter-bar input, .search-filter-bar select {
     width: 100%;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
   }
 
+  /* 1. CATÁLOGO DE VENTAS EN 2 COLUMNAS ESTRICTAS */
+  .products-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.6rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .product-card {
+    border-radius: 0.75rem !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .product-image-wrapper {
+    aspect-ratio: 1/1 !important;
+    max-height: 130px !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .product-card-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .product-image-fallback {
+    font-size: 2.2rem !important;
+  }
+
+  .stock-badge {
+    font-size: 0.65rem !important;
+    padding: 0.15rem 0.35rem !important;
+    top: 0.35rem !important;
+    right: 0.35rem !important;
+  }
+
+  .product-info {
+    padding: 0.5rem !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .product-name {
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+    display: block !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  .product-price {
+    font-size: 1rem !important;
+  }
+
+  .variant-select-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 0.2rem !important;
+  }
+
+  .variant-select {
+    font-size: 0.72rem !important;
+    padding: 0.25rem 0.35rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+  }
+
+  .btn-add-cart {
+    padding: 0.45rem 0.25rem !important;
+    font-size: 0.8rem !important;
+    width: 100% !important;
+    margin-top: 0.35rem !important;
+  }
+
+  /* 2. GESTIÓN DE INVENTARIO (ADMIN PANEL) EN 2 COLUMNAS EN MÓVIL */
   .admin-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+    width: 100% !important;
   }
 
   .form-row {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .admin-card {
+    padding: 1rem;
+    border-radius: 0.85rem;
+  }
+
+  .admin-table-container {
+    max-height: unset !important;
+    border: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .admin-table {
+    display: block !important;
+    width: 100% !important;
+    border: none !important;
+  }
+
+  .admin-table thead {
+    display: none !important;
+  }
+
+  .admin-table tbody {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.6rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .admin-table tr.admin-product-row {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    background: #ffffff !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.6rem !important;
+    gap: 0.35rem !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 2px 8px rgba(148, 163, 184, 0.06) !important;
+  }
+
+  .admin-table tr.admin-product-row td {
+    padding: 0 !important;
+    border: none !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .admin-col-img {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 75px !important;
+    background: rgba(15, 23, 42, 0.02) !important;
+    border-radius: 0.5rem !important;
+    overflow: hidden !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .admin-col-img .admin-table-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .admin-col-img .admin-table-img-fallback {
+    font-size: 2rem !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .admin-col-name {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: var(--text-main) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .admin-col-price {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: var(--primary) !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  .admin-col-stock {
+    margin-top: auto !important;
+    width: 100% !important;
+  }
+
+  .admin-col-stock .stock-control {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 0.2rem !important;
+  }
+
+  .admin-col-stock .btn-qty {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.85rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .admin-col-stock .admin-stock-input {
+    flex: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0.2rem !important;
+    font-size: 0.82rem !important;
+    text-align: center !important;
+  }
+
+  .admin-variant-stock-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.25rem !important;
+    width: 100% !important;
+  }
+
+  .admin-var-label {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 50px !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+  }
+
+  .admin-col-actions {
+    border-top: 1px dashed rgba(15, 23, 42, 0.08) !important;
+    padding-top: 0.35rem !important;
+    margin-top: 0.25rem !important;
+    width: 100% !important;
+  }
+
+  .admin-col-actions .admin-actions {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 0.4rem !important;
+  }
+
+  .admin-actions .btn-table-icon {
+    flex: 1 !important;
+    text-align: center !important;
+    padding: 0.3rem 0 !important;
+    font-size: 0.95rem !important;
+    background: rgba(15, 23, 42, 0.04) !important;
+    border-radius: 0.35rem !important;
+  }
+
+  /* 3. CARRITO Y CAJA EN MÓVIL */
+  .cart-item-row {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .cart-item-details {
+    min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .cart-item-name {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 130px !important;
+    font-size: 0.82rem !important;
+  }
+
+  .cash-items-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .cash-tile {
+    padding: 0.4rem;
+  }
+
+  .bill-face {
+    width: 55px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+
+  .coin-face {
+    width: 34px;
+    height: 34px;
+    font-size: 0.8rem;
+  }
+
+  .quick-cash-buttons {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
   }
 
   .history-header {
@@ -1738,75 +2072,6 @@ body {
 
   .history-actions button {
     flex: 1;
-  }
-}
-
-@media (max-width: 540px) {
-  .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.65rem;
-  }
-
-  .product-card {
-    border-radius: 0.75rem;
-  }
-
-  .product-info {
-    padding: 0.6rem;
-  }
-
-  .product-name {
-    font-size: 0.85rem;
-  }
-
-  .product-price {
-    font-size: 1.1rem;
-  }
-
-  .btn-add-cart {
-    padding: 0.5rem 0.25rem;
-    font-size: 0.75rem;
-  }
-
-  .variant-select {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.4rem;
-  }
-
-  .cash-items-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-  }
-
-  .cash-tile {
-    padding: 0.4rem;
-  }
-
-  .bill-face {
-    width: 60px;
-    height: 32px;
-    font-size: 0.95rem;
-  }
-
-  .coin-face {
-    width: 36px;
-    height: 36px;
-    font-size: 0.85rem;
-  }
-
-  .cash-controls {
-    gap: 0.3rem;
-  }
-
-  .btn-qty {
-    width: 26px;
-    height: 26px;
-    font-size: 0.85rem;
-  }
-
-  .quick-cash-buttons {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.35rem;
   }
 
   .control-card {

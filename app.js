@@ -480,6 +480,7 @@ function renderAdminList() {
   
   state.products.forEach(prod => {
     const row = document.createElement('tr');
+    row.className = 'admin-product-row';
     
     // Imagen miniatura
     let imgHTML = '';
@@ -495,35 +496,35 @@ function renderAdminList() {
     if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
       let subrowsHTML = prod.variants.map(v => `
         <div class="variant-subrow">
-          <span style="font-weight:600;">${v.name}:</span>
+          <span class="admin-var-label" title="${v.name}">${v.name}:</span>
           <div class="stock-control">
-            <button class="btn-qty" onclick="quickAdjustVariantStock('${prod.id}', '${v.id}', -1)">-</button>
+            <button type="button" class="btn-qty" onclick="quickAdjustVariantStock('${prod.id}', '${v.id}', -1)">-</button>
             <input type="number" class="admin-stock-input" value="${v.stock}" min="0" onchange="manualAdjustVariantStock('${prod.id}', '${v.id}', this.value)">
-            <button class="btn-qty" onclick="quickAdjustVariantStock('${prod.id}', '${v.id}', 1)">+</button>
+            <button type="button" class="btn-qty" onclick="quickAdjustVariantStock('${prod.id}', '${v.id}', 1)">+</button>
           </div>
         </div>
       `).join('');
       
-      stockControlHTML = `<div style="display:flex; flex-direction:column; gap:0.25rem;">${subrowsHTML}</div>`;
+      stockControlHTML = `<div class="admin-variant-stock-list">${subrowsHTML}</div>`;
     } else {
       stockControlHTML = `
         <div class="stock-control">
-          <button class="btn-qty" onclick="quickAdjustStock('${prod.id}', -1)">-</button>
+          <button type="button" class="btn-qty" onclick="quickAdjustStock('${prod.id}', -1)">-</button>
           <input type="number" class="admin-stock-input" value="${prod.stock}" min="0" onchange="manualAdjustStock('${prod.id}', this.value)">
-          <button class="btn-qty" onclick="quickAdjustStock('${prod.id}', 1)">+</button>
+          <button type="button" class="btn-qty" onclick="quickAdjustStock('${prod.id}', 1)">+</button>
         </div>
       `;
     }
     
     row.innerHTML = `
-      <td>${imgHTML}</td>
-      <td style="font-weight: 600;">${prod.name}</td>
-      <td>${prod.price.toFixed(2)}€</td>
-      <td>${stockControlHTML}</td>
-      <td>
+      <td class="admin-col-img">${imgHTML}</td>
+      <td class="admin-col-name" title="${prod.name}">${prod.name}</td>
+      <td class="admin-col-price">${prod.price.toFixed(2)}€</td>
+      <td class="admin-col-stock">${stockControlHTML}</td>
+      <td class="admin-col-actions">
         <div class="admin-actions">
-          <button class="btn-table-icon" onclick="startEditProduct('${prod.id}')" title="Editar">✏️</button>
-          <button class="btn-table-icon" onclick="deleteProduct('${prod.id}')" title="Eliminar" style="color: var(--danger);">🗑️</button>
+          <button type="button" class="btn-table-icon" onclick="startEditProduct('${prod.id}')" title="Editar">✏️</button>
+          <button type="button" class="btn-table-icon" onclick="deleteProduct('${prod.id}')" title="Eliminar" style="color: var(--danger);">🗑️</button>
         </div>
       </td>
     `;
